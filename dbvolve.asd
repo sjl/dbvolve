@@ -6,9 +6,19 @@
   :license "MIT"
   :version "0.0.1"
 
-  :depends-on ()
+  :depends-on (:uiop)
 
   :serial t
   :components ((:module "src" :serial t
                 :components ((:file "package")
                              (:file "main")))))
+
+(asdf:defsystem :dbvolve/sqlite
+  :description "DBvolve for sqlite."
+  :author "Steve Losh <steve@stevelosh.com>"
+
+  :depends-on (:dbvolve :sqlite)
+
+  :serial t
+  :components ((:module "src" :serial t
+                :components ((:file "sqlite")))))
