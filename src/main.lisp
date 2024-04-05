@@ -1,5 +1,13 @@
 (in-package :dbvolve)
 
+;;;; Logging -----------------------------------------------------------------
+(defparameter *log-stream* *error-output*)
+
+(defun logging (format-string &rest arguments)
+  (when *log-stream*
+    (apply #'format *log-stream* format-string arguments)))
+
+
 ;;;; Data ---------------------------------------------------------------------
 (defclass evolution ()
   ((id :initarg :id :accessor id)
@@ -56,7 +64,7 @@
          (result (sort (coerce parsed 'vector) #'< :key #'id)))
     (if (plusp (length result))
       (check-evolutions result)
-      (warn "Could not find any evolutions in ~S." path))
+      (logging "Could not find any evolutions in ~S." path))
     result))
 
 
@@ -65,73 +73,78 @@
 (defgeneric create-metadata-table (db))
 (defgeneric lock-metadata-table (db))
 (defgeneric find-current-number (db))
-(defgeneric dump-current-state (db))
 (defgeneric run-evolution (db evolution))
 (defgeneric record-evolution (db evolution))
-(defgeneric commit (db))
 
 
 ;;;; Stub Implementation ------------------------------------------------------
-(defmethod call-with-new-transaction ((db null) thunk)
-  (funcall thunk))
+(defmethod call-with-new-transaction ((db (eql :fake)) thunk)
+  (let ((ok nil))
+    (unwind-protect (progn
+                      (funcall thunk)
+                      (setf ok t))
+      (if ok
+        (write-line "COMMIT;")
+        (write-line "ROLLBACK;")))))
 
-(defmethod create-metadata-table ((db null))
-  (write-line "
-    CREATE TABLE IF NOT EXISTS dbvolve (
-      id BIGINT PRIMARY KEY,
-      name TEXT NOT NULL,
-      created TIMESTAMPTZ NOT NULL DEFAULT now()
-    );
-    "))
+(defmethod create-metadata-table ((db (eql :fake)))
+  (write-line (format nil "~
+CREATE TABLE IF NOT EXISTS dbvolve (
+    id BIGINT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created TIMESTAMPTZ NOT NULL DEFAULT now()
+);")))
 
-(defmethod lock-metadata-table ((db null))
-  (write-line "LOCK TABLE dvolve;")
-  )
+(defmethod lock-metadata-table ((db (eql :fake)))
+  (write-line "LOCK TABLE dvolve;"))
 
-(defmethod find-current-number ((db null))
+(defmethod find-current-number ((db (eql :fake)))
   (write-line "SELECT max(id) FROM dbvolve;")
-  1)
+  nil)
 
-(defmethod dump-current-state ((db null))
-  (write-line "SELECT * FROM dbvolve;"))
-
-(defmethod run-evolution ((db null) (evolution evolution/sql))
+(defmethod run-evolution ((db (eql :fake)) (evolution evolution/sql))
   (write-line (uiop:read-file-string (path evolution))))
 
-(defmethod record-evolution ((db null) evolution)
+(defmethod record-evolution ((db (eql :fake)) evolution)
   (write-line (format nil "INSERT INTO dbvolve (id, name, file) VALUES (~S, ~S);"
                       (id evolution)
                       (name evolution))))
 
-(defmethod commit ((db null)))
-
 
 ;;;; API ----------------------------------------------------------------------
 (defun evolve% (database evolutions)
-  (dolist (evolution evolutions)
-    (format t "~%Running ~A.~%" evolution)
-    (run-evolution database evolution)
-    (record-evolution database evolution)
-    (format t "Finished ~A.~%" evolution)))
+  (map nil (lambda (evolution)
+             (logging "    Running  ~A.~%" evolution)
+             (run-evolution database evolution)
+             (record-evolution database evolution)
+             (logging "    Finished ~A.~%" evolution))
+       evolutions))
 
 (defun evolve (database evolutions-path)
   (let* ((path (uiop:parse-native-namestring evolutions-path :ensure-directory t))
          (evolutions (find-evolutions path)))
-    (if (zerop (length evolutions))
-      (warn "No evolutions found in ~S, doing nothing." evolutions-path)
-      (let ((n (length evolutions)))
-        (call-with-new-transaction
-          database
-          (lambda ()
-            (create-metadata-table database)
-            (lock-metadata-table database)
-            (let* ((current (find-current-number database))
-                   (start (1+ current)))
-              (format t "Found ~D evolution~:P, DB has ~D, running ~D evolution~:P.~%"
-                      n (1+ current) (- n start))
-              (evolve% database (subseq evolutions start))
-              (commit)
-              (format t "Finished running ~D evolution~:P successfully.~%" n))))))))
+    (when (zerop (length evolutions))
+      (logging "No evolutions found in ~S, doing nothing." evolutions-path)
+      (return-from evolve))
+    (let ((n (length evolutions)))
+      (call-with-new-transaction
+        database
+        (lambda ()
+          (logging "Creating metadata table if needed.~%")
+          (create-metadata-table database)
+          (logging "Obtaining table lock.~%")
+          (lock-metadata-table database)
+          (let* ((current (or (find-current-number database) -1))
+                 (dbn (1+ current))
+                 (start (1+ current)))
+            (when (> dbn n)
+              (logging "Found ~D evolution~:P but DB has ~D, not running anything.~%"
+                    n dbn)
+              (return-from evolve))
+            (logging "Found ~D evolution~:P, DB has ~D, running ~D evolution~:P.~%"
+                    n dbn (- n dbn))
+            (evolve% database (subseq evolutions start))
+            (logging "Finished running ~D evolution~:P successfully.~%" (- n dbn))))))))
 
 
 

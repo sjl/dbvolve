@@ -4,3 +4,5 @@ scratch.lisp
 *.png
 docs/build
 *.sqlite
+bin/
+man/

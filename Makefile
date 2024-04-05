@@ -5,6 +5,8 @@ sourcefiles = $(shell ffind --full-path --literal .lisp)
 docfiles = $(shell ls docs/*.markdown)
 apidocs = $(shell ls docs/*reference*.markdown)
 
+all: bin/dbvolve
+
 # Testing ---------------------------------------------------------------------
 test: test-sbcl test-ccl test-ecl test-abcl
 
@@ -38,3 +40,11 @@ pubdocs: docs
 	rsync --delete -a ./docs/build/ ~/src/docs.stevelosh.com/dbvolvet
 	hg -R ~/src/docs.stevelosh.com commit -Am 'dbvolvet: Update site.'
 	hg -R ~/src/docs.stevelosh.com push
+
+# CLI -------------------------------------------------------------------------
+bin/dbvolve: $(sourcefiles)
+	mkdir -p bin
+	mkdir -p man
+	sbcl-raw --noinform --disable-debugger --eval '(ql:quickload :dbvolve/cli)' --eval '(dbvolve/cli:build)'
+	mv ./dbvolve bin/
+	mv ./dbvolve.1 man/

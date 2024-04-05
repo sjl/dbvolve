@@ -13,8 +13,18 @@
                 :components ((:file "package")
                              (:file "main")))))
 
+(asdf:defsystem :dbvolve/postmodern
+  :description "DBvolve for Postmodern."
+  :author "Steve Losh <steve@stevelosh.com>"
+
+  :depends-on (:dbvolve :postmodern)
+
+  :serial t
+  :components ((:module "src" :serial t
+                :components ((:file "postmodern")))))
+
 (asdf:defsystem :dbvolve/sqlite
-  :description "DBvolve for sqlite."
+  :description "DBvolve for cl-sqlite."
   :author "Steve Losh <steve@stevelosh.com>"
 
   :depends-on (:dbvolve :sqlite)
@@ -22,3 +32,13 @@
   :serial t
   :components ((:module "src" :serial t
                 :components ((:file "sqlite")))))
+
+(asdf:defsystem :dbvolve/cli
+  :description "CLI program for DBvolve."
+  :author "Steve Losh <steve@stevelosh.com>"
+
+  :depends-on (:dbvolve :dbvolve/sqlite :dbvolve/postmodern :adopt)
+
+  :serial t
+  :components ((:module "src" :serial t
+                :components ((:file "cli")))))
