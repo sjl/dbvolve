@@ -123,9 +123,6 @@ CREATE TABLE IF NOT EXISTS dbvolve (
 (defun evolve (database evolutions-path)
   (let* ((path (uiop:parse-native-namestring evolutions-path :ensure-directory t))
          (evolutions (find-evolutions path)))
-    (when (zerop (length evolutions))
-      (logging "No evolutions found in ~S, doing nothing." evolutions-path)
-      (return-from evolve))
     (let ((n (length evolutions)))
       (call-with-new-transaction
         database
@@ -134,17 +131,19 @@ CREATE TABLE IF NOT EXISTS dbvolve (
           (create-metadata-table database)
           (logging "Obtaining table lock.~%")
           (lock-metadata-table database)
-          (let* ((current (or (find-current-number database) -1))
-                 (dbn (1+ current))
-                 (start (1+ current)))
-            (when (> dbn n)
-              (logging "Found ~D evolution~:P but DB has ~D, not running anything.~%"
-                    n dbn)
-              (return-from evolve))
-            (logging "Found ~D evolution~:P, DB has ~D, running ~D evolution~:P.~%"
-                    n dbn (- n dbn))
-            (evolve% database (subseq evolutions start))
-            (logging "Finished running ~D evolution~:P successfully.~%" (- n dbn))))))))
+          (if (zerop (length evolutions))
+            (logging "No evolutions found in ~S, nothing to run." evolutions-path)
+            (let* ((current (or (find-current-number database) -1))
+                   (dbn (1+ current))
+                   (start (1+ current)))
+              (when (> dbn n)
+                (logging "Found ~D evolution~:P but DB has ~D, not running anything.~%"
+                         n dbn)
+                (return-from evolve))
+              (logging "Found ~D evolution~:P, DB has ~D, running ~D evolution~:P.~%"
+                       n dbn (- n dbn))
+              (evolve% database (subseq evolutions start))
+              (logging "Finished running ~D evolution~:P successfully.~%" (- n dbn)))))))))
 
 
 

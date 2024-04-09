@@ -8,6 +8,8 @@
 
   :depends-on (:uiop)
 
+  :in-order-to ((asdf:test-op (asdf:test-op :dbvolve/test)))
+
   :serial t
   :components ((:module "src" :serial t
                 :components ((:file "package")
@@ -42,3 +44,21 @@
   :serial t
   :components ((:module "src" :serial t
                 :components ((:file "cli")))))
+
+
+(asdf:defsystem :dbvolve/test
+  :description "Test suite for DBvolve."
+
+  :author "Steve Losh <steve@stevelosh.com>"
+  :license "MIT"
+
+  :depends-on (:dbvolve/sqlite :1am)
+
+  :serial t
+  :components ((:module "test"
+                :serial t
+                :components ((:file "package")
+                             (:file "tests"))))
+
+  :perform (asdf:test-op (op system)
+             (funcall (read-from-string "dbvolve/test:run-tests"))))
