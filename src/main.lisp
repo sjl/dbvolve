@@ -121,6 +121,18 @@ CREATE TABLE IF NOT EXISTS dbvolve (
        evolutions))
 
 (defun evolve (database evolutions-path)
+  "Run evolutions at `evolutions-path` against `database`.
+
+  `database` must be a database client object for a supported database client
+  system.  Supporting systems (e.g. `dbvolve/sqlite`) must already be loaded.
+
+  Examples:
+
+    (ql:quickload '(:dbvolve :dbvolve/sqlite))
+    (defvar *db* (sqlite:connect \"foo.sqlite\"))
+    (evolve *db* \"path/to/evolutions\"))
+
+  "
   (let* ((path (uiop:parse-native-namestring evolutions-path :ensure-directory t))
          (evolutions (find-evolutions path)))
     (let ((n (length evolutions)))

@@ -12,3 +12,20 @@ don't touch it.
 
 ## Package `DBVOLVE`
 
+### `EVOLVE` (function)
+
+    (EVOLVE DATABASE EVOLUTIONS-PATH)
+
+Run evolutions at `evolutions-path` against `database`.
+
+  `database` must be a database client object for a supported database client
+  system.  Supporting systems (e.g. `dbvolve/sqlite`) must already be loaded.
+
+  Examples:
+
+    (ql:quickload '(:dbvolve :dbvolve/sqlite))
+    (defvar *db* (sqlite:connect "foo.sqlite"))
+    (evolve *db* "path/to/evolutions"))
+
+  
+
